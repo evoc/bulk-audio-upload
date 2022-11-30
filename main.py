@@ -10,16 +10,21 @@ import getpass
 import os
 import shutil
 import concurrent.futures
-
+import json
 import memrise
 
 endpoint = "https://api.soundoftext.com/sounds/"
 os.system("chcp 65001")
 
+storeallwordsJSON = []
 
 def handle_single_database_page(database_url, task):
 	print("fetching: " + database_url)
 	things = memriseService.get_thing_information(database_url)
+	if args.storewords and things:
+		global storeallwordsJSON		
+		for thing in things: 
+			storeallwordsJSON.append(json.loads(thing.toJSON()))
 	if task['engine'].lower() == str(Engines.gtts).lower():
 		sequence_through_audios_gtts(things, database_url, task)
 	else:
@@ -169,13 +174,9 @@ def MainFunction():
 		epilog="""Where URL is the url of the first page after you go to your course's database.
 \n
 For example:
-python main.py http://app.memrise.com/course/1036119/hsk-level-6/edit/database/2000662/\n
+python main.py http://app.memrise.com/course/1036119/hsk-level-6\n
 \n
-This will add audio to any words that are missing it for the course:
-http://app.memrise.com/course/1036119/hsk-level-6.
-\n
-This course's database page is:
-http://app.memrise.com/course/1036119/hsk-level-6/edit/database/2000662/.\n
+This will add audio to any words that are missing it for the course.
 \n
 Parameters can also be set in a configuration file 'variables.py'. See README.md for details.""",
 	)
@@ -226,10 +227,17 @@ Parameters can also be set in a configuration file 'variables.py'. See README.md
 		help="number of audios allowed per word  (default is 1). This can be useful if you want to enforce another audio version.",
 	)
 	parser.add_argument(
+		"-d", "--debug", default=False, action="store_true", help="Print debug output"
+	)
+	# make sure these parameters are not used together:
+	group = parser.add_mutually_exclusive_group()
+	group.add_argument(
 		"-o", "--pooled", action="store_true", help="Enable parallel fetching"
 	)
-	parser.add_argument(
-		"-d", "--debug", default=False, action="store_true", help="Print debug output"
+	group.add_argument(
+		"--storewords",
+		default="",
+		help="File name for a json that will contain all words.",
 	)
 
 	# parameters are initialized in this order:
@@ -341,10 +349,15 @@ Parameters can also be set in a configuration file 'variables.py'. See README.md
 			print("number of pages: " + str(number_of_pages))
 
 			get_audio_files_from_course(url, number_of_pages, task)
-
-	print("all done")
+	if args.storewords:
+		global storeallwordsJSON
+		wordsfile = open(args.storewords, "w")
+		wordsfile.write(json.dumps(storeallwordsJSON, indent=4))
+		wordsfile.close()
+		
 	if not args.keepaudio:
 		shutil.rmtree("mp3", ignore_errors=True)
+	print("all done")
 
 if __name__ == "__main__":
 	MainFunction()
