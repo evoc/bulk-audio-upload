@@ -14,6 +14,7 @@ class MemriseThing(object):
         self.audio_cell_id = -1 # column_number_of_audio
         self.file_name = ""
         self.original_word = ""
+        self.backup_word = ""
         self.audio_files = []
     def toJSON(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
@@ -189,6 +190,42 @@ class Service(object):
 
             things.append(a)
         return things
+
+    def delete_audiofile_from_thing(self, course, thing_info : MemriseThing, audioToRemove = -1):
+        thing_id = thing_info.thing_id
+        cell_id = thing_info.audio_cell_id
+        self.session.headers["referer"] = course
+        post_url = base_url_plain + "/ajax/thing/column/delete_from/"
+
+        filesToDelete = []
+        if audioToRemove < 0:
+            filesToDelete = list(range(len(thing_info.audio_files), 0 , -1)) # Important: count downwards
+        else:
+            filesToDelete.append(audioToRemove)
+        
+        for deleteIndex  in filesToDelete:
+            # "thing_id=240854943&column_key=3&file_id=1&cell_type=column"
+            csrtoken = requests.utils.dict_from_cookiejar(self.session.cookies)["csrftoken"]
+
+            form_data = {
+                "thing_id": thing_id,
+                "column_key": cell_id,
+                "file_id": deleteIndex,
+                "cell_type": "column",
+                "csrfmiddlewaretoken": csrtoken }
+
+            r = self.session.post(post_url,  data=form_data, timeout=60)            
+            if r.status_code != requests.codes.ok:
+                if (self.debugOutput):
+                    print(b'Delete audio ' + str(deleteIndex).encode('utf-8') + b' for word "' + thing_info.original_word.encode('utf-8') + b'" failed with error: ' + str(r.status_code).encode('utf-8'))
+                    print('request headers:')
+                    print(r.request.headers)
+                    print('response headers:')
+                    print(r.headers)
+                raise MemriseError('Upload for word "' + thing_info.original_word + '" failed with error: ' + str(r.status_code))
+            #else:
+            #    if (self.debugOutput):
+            #        print(b'Delete audio ' + str(deleteIndex).encode('utf-8') + b' for word "' + thing_info.original_word.encode('utf-8') + b'" succeeded')
 
     def upload_file_to_server(self, course, thing_info : MemriseThing):
         thing_id = thing_info.thing_id

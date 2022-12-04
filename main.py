@@ -11,6 +11,7 @@ import os
 import shutil
 import concurrent.futures
 import json
+import re
 import memrise
 
 endpoint = "https://api.soundoftext.com/sounds/"
@@ -21,10 +22,27 @@ storeallwordsJSON = []
 def handle_single_database_page(database_url, task):
 	print("fetching: " + database_url)
 	things = memriseService.get_thing_information(database_url)
+	if 'deleteallaudios' in task:
+		for thing in things: 
+			if len(thing.audio_files) > 0:
+				print(b"deleting all " + str(len(thing.audio_files)).encode('utf-8') + b" existing audio files for word \"" + thing.original_word.encode('utf-8') + b"\"")
+				memriseService.delete_audiofile_from_thing(database_url, thing)
+				thing.audio_files.clear()
+
+	if 'replacements' in task:
+		for thing in things: 
+			thing.backup_word = thing.original_word
+			for replacement in task['replacements']:
+				thing.original_word = re.sub(replacement['source'], replacement['target'], thing.original_word)
+			if thing.original_word == thing.backup_word:
+				thing.backup_word = ""
+
 	if args.storewords and things:
 		global storeallwordsJSON		
 		for thing in things: 
 			storeallwordsJSON.append(json.loads(thing.toJSON()))
+	
+	
 	if task['engine'].lower() == str(Engines.gtts).lower():
 		sequence_through_audios_gtts(things, database_url, task)
 	else:
