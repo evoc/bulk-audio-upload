@@ -11,6 +11,8 @@ import os
 import shutil
 import concurrent.futures
 
+Hello
+
 import memrise
 
 endpoint = "https://api.soundoftext.com/sounds/"
